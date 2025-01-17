@@ -1,8 +1,9 @@
-# Lambda layer for common functions
+# SAM Template for MIC demo
 
-## Summary
-
-This is Lambda layer is intended to share common airtables.
+## Prerequisite
+- aws cli
+- sam cli
+- aws accounts and proper access to lambda, sqs, api gateway, eventbridge, cloudformation, s3 and creating permission for the same
 
 ## Build
 
