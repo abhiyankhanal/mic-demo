@@ -1,0 +1,17 @@
+{
+   "compilerOptions": {
+    "target": "es2020",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "baseUrl": "./",
+    "paths": {
+      "@shared/*": ["shared/*"]
+    },
+    "outDir": ".aws-sam/build",
+    "esModuleInterop": true,
+    "sourceMap": true,
+    "strict": true
+  },
+   "include": ["functions/*", "shared/**/*"],
+  "exclude": ["node_modules"]
+}

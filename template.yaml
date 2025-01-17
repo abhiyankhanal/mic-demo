@@ -1,0 +1,153 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: SAM Template for Lambda functions and other serverless components.
+
+Resources:
+  DemoAPIGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+
+  DemoDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: demo-dlq
+      MessageRetentionPeriod: 1209600 # 14 days
+
+  SQSForMICSimpleDemoFunction:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: demo-queue
+      VisibilityTimeout: 30
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt DemoDeadLetterQueue.Arn
+        maxReceiveCount: 3  # Messages will go to DLQ after 3 failed processing attempts
+
+  # Lambda Layer definition
+  TempLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: TempLayer
+      Description: Layer containing Airtable and XLSX libraries
+      ContentUri: ./layer/
+      CompatibleRuntimes:
+        - nodejs16.x
+        - nodejs20.x
+      LicenseInfo: 'MIT'
+
+  # Lambda Function using the layer
+  MICSimpleDemoFunction:
+    Type: AWS::Serverless::Function
+    Properties: 
+      CodeUri: ./
+      Handler: functions/simple-demo.handler
+      Runtime: nodejs20.x
+      FunctionName: demo-lambda-one
+      MemorySize: 128
+      Timeout: 10
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - AWSLambdaSQSQueueExecutionRole
+      Environment:
+        Variables:
+          Temp: !Sub 'temporary value'
+      Events:
+        DemoAPIGateway:
+          Type: Api
+          Properties:
+            Path: /
+            Method: ANY
+            RestApiId: !Ref DemoAPIGateway
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: "es2020"
+        Sourcemap: true
+        EntryPoints:
+          - functions/simple-demo.ts
+        External:
+          - /opt/nodejs/*
+
+  # ScheduledDemoFunction:
+  #     Type: AWS::Serverless::Function
+  #     Properties:
+  #       CodeUri: ./
+  #       Handler: functions/scheduled-demo.handler
+  #       Runtime: nodejs20.x
+  #       FunctionName: scheduled-demo-function
+  #       MemorySize: 128
+  #       Timeout: 10
+  #       Policies:
+  #         - AWSLambdaBasicExecutionRole
+  #       Events:
+  #         ScheduleEvent:
+  #           Type: Schedule
+  #           Properties:
+  #             Schedule: rate(1 minute)
+  #             Name: DemoSchedule
+  #             Description: Schedule to trigger lambda every minute
+  #             Enabled: true
+  #             Input: |
+  #               {
+  #                 "demo": "test",
+  #                 "message": "This is a demo event",
+  #                 "timestamp": "2024-01-01T00:00:00Z",
+  #                 "data": {
+  #                   "key1": "value1",
+  #                   "key2": "value2"
+  #                 }
+  #               }
+  #     Metadata:
+  #       BuildMethod: esbuild
+  #       BuildProperties:
+  #         Minify: false
+  #         Target: "es2020"
+  #         Sourcemap: true
+  #         EntryPoints:
+  #           - functions/scheduled-demo.ts
+  #         External:
+  #           - /opt/nodejs/*
+
+  DemoFunctionWithDLQ:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: functions/dlq-demo.handler
+      Runtime: nodejs20.x
+      FunctionName: demo-lambda-with-dlq
+      MemorySize: 128
+      Timeout: 30
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - AmazonSQSFullAccess
+      DeadLetterQueue:
+        Type: SQS
+        TargetArn: !GetAtt DemoDeadLetterQueue.Arn
+      Events:
+        SQSEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt SQSForMICSimpleDemoFunction.Arn
+            BatchSize: 10
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
+    Metadata:
+        BuildMethod: esbuild
+        BuildProperties:
+          Minify: false
+          Target: "es2020"
+          Sourcemap: true
+          EntryPoints:
+            - functions/dlq-demo.ts
+          External:
+            - /opt/nodejs/*
+
+Outputs:
+  DemoQueueURL:
+    Description: "Demo Queue URL"
+    Value: !Ref SQSForMICSimpleDemoFunction
+  
+  DemoAPIGatewayURL:
+    Description: "API Gateway endpoint URL for REST API"
+    Value: !Sub "https://${DemoAPIGateway}.execute-api.${AWS::Region}.amazonaws.com/${DemoAPIGateway.Stage}"

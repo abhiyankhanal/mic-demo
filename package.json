@@ -1,0 +1,17 @@
+{
+    "name": "mic-demo",
+    "version": "1.0.0",
+    "main": "index.js",
+    "type": "module",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "dev": "nodemon app.js"
+    },
+    "author": "",
+    "license": "ISC",
+    "description": "",
+    "dependencies": {
+        "@aws-sdk/client-lambda": "3.726.1",
+        "aws-lambda": "^1.0.7"
+    }
+}
